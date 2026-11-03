@@ -19,6 +19,13 @@ The core is a faithful port: an `/etc/hosts` block plus a `pf` firewall anchor, 
 the rules every second and repairs tampering, blocklist and allowlist modes, adding sites / extending a running block
 (never shortening it), common-subdomain and Google/Facebook handling, cache and DNS flushing.
 
+## Download
+
+Grab the latest `Holdfast-x.y.z.dmg` from [Releases](https://github.com/vinaymve/holdfast/releases), drag Holdfast to
+Applications, and compare `shasum -a 256` against the checksum in the release notes. Releases are currently **not
+notarized** (no Apple Developer ID yet), so macOS will refuse to open the app the first time: try to open it once, then
+go to System Settings → Privacy & Security and click **Open Anyway**. Universal binary, macOS 14+.
+
 ## Build and run
 
 Requires Xcode 15+ / Swift 5.10+ on macOS 14+.
@@ -28,8 +35,8 @@ Scripts/build-app.sh          # builds build/Holdfast.app (app + helper + CLI, a
 open build/Holdfast.app
 ```
 
-On first launch click **Install Helper** (one admin prompt). Starting a block, adding sites, extending, and saving
-schedules each ask for your admin password / Touch ID, as in the original.
+The first time you start a block, Holdfast installs its helper as part of the same admin prompt. Starting a block,
+adding sites, extending, and saving schedules each ask for your admin password / Touch ID, as in the original.
 
 ### CLI
 
@@ -106,7 +113,11 @@ CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" Scripts/build-a
 ditto -c -k --keepParent build/Holdfast.app build/Holdfast.zip
 xcrun notarytool submit build/Holdfast.zip --keychain-profile "<profile>" --wait
 xcrun stapler staple build/Holdfast.app
+Scripts/make-dmg.sh           # build/Holdfast-<version>.dmg (signed too if CODESIGN_IDENTITY is set)
 ```
+
+Without `CODESIGN_IDENTITY`, `Scripts/build-app.sh release` produces a universal, ad-hoc-signed app and
+`Scripts/make-dmg.sh` packages it; that is what the unnotarized GitHub releases use.
 
 A signed build pins the installed helper to the app's Team ID. The Developer ID path has not been exercised in this
 repository's development (no signing identity was available), so test it on a clean Mac before publishing.

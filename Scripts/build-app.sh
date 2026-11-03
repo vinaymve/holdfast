@@ -6,8 +6,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
-swift build -c "$CONFIG"
-BIN="$(swift build -c "$CONFIG" --show-bin-path)"
+# Release builds are universal (arm64 + x86_64); debug builds are native only.
+ARCHS=()
+if [ "$CONFIG" = "release" ]; then ARCHS=(--arch arm64 --arch x86_64); fi
+swift build -c "$CONFIG" ${ARCHS[@]+"${ARCHS[@]}"}
+BIN="$(swift build -c "$CONFIG" ${ARCHS[@]+"${ARCHS[@]}"} --show-bin-path)"
 
 APP="build/Holdfast.app"
 rm -rf "$APP"

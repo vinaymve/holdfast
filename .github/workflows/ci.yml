@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (debug and release)
+        run: |
+          swift build
+          swift build -c release
+      - name: Unit tests
+        run: swift test
+      - name: Release binaries contain no dev-only flags
+        run: |
+          swift build -c release
+          for b in Holdfast holdfastd holdfast-cli; do
+            if strings ".build/release/$b" | grep -qE 'dev-root|dev-service|dev-state'; then
+              echo "dev flag found in release binary $b"; exit 1
+            fi
+          done

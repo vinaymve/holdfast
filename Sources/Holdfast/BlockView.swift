@@ -8,19 +8,36 @@ struct BlockView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
+            VStack(spacing: 24) {
                 if let block = model.activeBlock {
                     ActiveBlockCard(block: block)
                 } else {
+                    BlockHeader()
                     NewBlockCard()
                 }
             }
             .frame(maxWidth: 560)
-            .padding(28)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
             .frame(maxWidth: .infinity)
         }
-        .navigationTitle(model.activeBlock == nil ? "New Block" : "Block Running")
+        // The idle screen has its own large heading, so the toolbar title would only repeat it.
+        .navigationTitle(model.activeBlock == nil ? "" : "Block Running")
         .errorAlert(Bindable(model).errorMessage)
+    }
+}
+
+private struct BlockHeader: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("New block")
+                .font(Theme.display(34))
+                .foregroundStyle(Theme.ink)
+            Text("Choose what to block and for how long. A running block can't be ended early.")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.inkSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -30,38 +47,37 @@ struct NewBlockCard: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("What to block").font(.headline)
+        VStack(spacing: 16) {
+            Card {
+                VStack(alignment: .leading, spacing: 14) {
+                    Heading("What to block")
                     ProfilePicker()
                 }
-                Divider()
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("For how long").font(.headline)
+            }
+            Card {
+                VStack(alignment: .leading, spacing: 16) {
+                    Heading("For how long")
                     LengthPicker()
                 }
-                VStack(spacing: 8) {
-                    Button {
-                        Task { await model.startBlock() }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if model.isBusy { ProgressView().controlSize(.small) }
-                            Text("Start Block").fontWeight(.semibold)
-                        }
-                        .frame(maxWidth: .infinity)
+            }
+            VStack(spacing: 10) {
+                Button {
+                    Task { await model.startBlock() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if model.isBusy { ProgressView().controlSize(.small) }
+                        Text("Start block")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.extraLarge)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!model.canStart)
-
-                    Text(startHint)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(PrimaryButtonStyle())
+                .keyboardShortcut(.defaultAction)
+                .disabled(!model.canStart)
+
+                Text(startHint)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSecondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -101,11 +117,11 @@ struct ProfilePicker: View {
             if let profile = model.selectedProfile {
                 HStack {
                     Text(summary(profile))
-                        .font(.callout)
-                        .foregroundStyle(profile.isEmpty ? Color.orange : Color.secondary)
+                        .font(.system(size: 13))
+                        .foregroundStyle(profile.isEmpty ? Theme.warning : Theme.inkSecondary)
                     Spacer()
-                    Button("Edit…") { model.section = .profiles }
-                        .buttonStyle(.link)
+                    Button("Edit profile") { model.section = .profiles }
+                        .buttonStyle(SecondaryButtonStyle())
                 }
             }
         }
@@ -132,13 +148,9 @@ struct LengthPicker: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 16) {
-            Picker("Length", selection: $model.lengthMode) {
-                Text("For a duration").tag(LengthMode.duration)
-                Text("Until a time").tag(LengthMode.until)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .onChange(of: model.lengthMode) { model.saveLengthChoice() }
+            SegmentedControl(options: [(LengthMode.duration, "For a duration"), (LengthMode.until, "Until a time")],
+                             selection: $model.lengthMode)
+                .onChange(of: model.lengthMode) { model.saveLengthChoice() }
 
             switch model.lengthMode {
             case .duration: DurationEditor()
@@ -147,12 +159,12 @@ struct LengthPicker: View {
 
             if let problem = model.lengthProblem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout)
-                    .foregroundStyle(.orange)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.warning)
             } else {
                 Label(model.plannedEndDescription, systemImage: "clock")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.inkSecondary)
                     .contentTransition(.numericText())
             }
         }
@@ -220,16 +232,11 @@ private struct UntilEditor: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 14) {
                 NumberField(unit: "", value: hourBinding, range: uses12Hour ? 1...12 : 0...23)
-                Text(":").font(.system(size: 30, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
+                Text(":").font(Theme.display(30, weight: .medium)).foregroundStyle(Theme.inkSecondary)
                 NumberField(unit: "", value: minuteBinding, range: 0...59, zeroPadded: true)
                 if uses12Hour {
-                    Picker("", selection: pmBinding) {
-                        Text("AM").tag(false)
-                        Text("PM").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 96)
+                    SegmentedControl(options: [(false, "AM"), (true, "PM")], selection: pmBinding)
+                        .frame(width: 120)
                 }
             }
             HStack(spacing: 8) {
@@ -254,76 +261,96 @@ struct ActiveBlockCard: View {
     @Environment(AppModel.self) private var model
     let block: ActiveBlock
     @State private var showAddSites = false
+    @State private var showExtend = false
 
     var body: some View {
         let remaining = block.remaining(at: model.now)
-        VStack(spacing: 18) {
-            Card {
-                VStack(spacing: 20) {
-                    ZStack {
-                        Circle().stroke(Color.primary.opacity(0.08), lineWidth: 14)
-                        Circle()
-                            .trim(from: 0, to: block.progress(at: model.now))
-                            .stroke(Color.accentColor.gradient, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                            .animation(.linear(duration: 1), value: model.now)
-                        VStack(spacing: 4) {
-                            Text(Format.clock(remaining))
-                                .font(.system(size: 46, weight: .semibold, design: .rounded).monospacedDigit())
-                            Text(remaining > 0 ? "remaining" : "confirming the time…").font(.callout).foregroundStyle(.secondary)
-                        }
+        VStack(spacing: 16) {
+            Card(padding: 28) {
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack(spacing: 8) {
+                        StatusDot()
+                        Text("Blocking" + (block.profileName.map { " · \($0)" } ?? ""))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.ink)
                     }
-                    .frame(width: 236, height: 236)
-                    .padding(.top, 4)
 
-                    Text("Ends \(endText) · \(startedText)")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(Format.clock(remaining))
+                            .font(Theme.display(72, weight: .medium))
+                            .foregroundStyle(Theme.ink)
+                            .contentTransition(.numericText(countsDown: true))
+                        Text(remaining > 0 ? "remaining" : "confirming the time…")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.inkSecondary)
+                    }
+
+                    VStack(spacing: 8) {
+                        TimeBar(progress: block.progress(at: model.now))
+                        HStack {
+                            Text("Started \(block.startDate.formatted(date: .omitted, time: .shortened))")
+                            Spacer()
+                            Text("Ends \(endText)")
+                        }
+                        .font(.system(size: 12).monospacedDigit())
+                        .foregroundStyle(Theme.inkSecondary)
+                    }
 
                     HStack(spacing: 10) {
-                        Spacer(minLength: 0)
-                        Button { showAddSites = true } label: { Label("Add Sites…", systemImage: "plus") }
+                        Button { showAddSites = true } label: { HStack(spacing: 6) { Image(systemName: "plus"); Text("Add sites") } }
+                            .buttonStyle(SecondaryButtonStyle())
                             .disabled(block.isAllowlist || model.isBusy)
                             .help(block.isAllowlist ? "Sites can't be added to an allowlist block." : "Add more sites to this block")
-                        Menu {
-                            ForEach([(15, "15 minutes"), (30, "30 minutes"), (60, "1 hour"), (120, "2 hours")], id: \.0) { minutes, title in
-                                Button(title) { Task { await model.extend(byMinutes: minutes) } }
-                            }
-                        } label: { Label("Extend", systemImage: "clock.badge.plus") }
-                            .menuStyle(.button)
-                            .fixedSize()
+                        Button { showExtend = true } label: { HStack(spacing: 6) { Image(systemName: "clock"); Text("Extend") } }
+                            .buttonStyle(SecondaryButtonStyle())
                             .disabled(model.isBusy)
-                        Spacer(minLength: 0)
+                            .popover(isPresented: $showExtend, arrowEdge: .bottom) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    ForEach([(15, "15 minutes"), (30, "30 minutes"), (60, "1 hour"), (120, "2 hours")], id: \.0) { minutes, title in
+                                        Button(title) {
+                                            showExtend = false
+                                            Task { await model.extend(byMinutes: minutes) }
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(.horizontal, 12)
+                                        .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                    }
+                                }
+                                .padding(6)
+                                .frame(width: 160)
+                            }
+                        Spacer()
+                        Text(startedText)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.inkSecondary)
                     }
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
 
             Card {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack {
-                        Text(block.isAllowlist ? "Allowed sites" : "Blocked sites").font(.headline)
+                        Heading(block.isAllowlist ? "Allowed sites" : "Blocked sites")
                         Spacer()
                         Text(block.isAllowlist ? "Everything else is blocked" : "\(block.entries.count) total")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.inkSecondary)
                     }
                     if block.entries.isEmpty && !block.isAllowlist {
-                        Text("No sites in this block.").foregroundStyle(.secondary)
+                        Text("No sites in this block.").foregroundStyle(Theme.inkSecondary)
                     } else {
-                        Text(block.entries.prefix(30).joined(separator: "  ·  ") + (block.entries.count > 30 ? "  ·  +\(block.entries.count - 30) more" : ""))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
+                        FlowLayout(spacing: 6) {
+                            ForEach(block.entries.prefix(40), id: \.self) { Tag(text: $0) }
+                            if block.entries.count > 40 { Tag(text: "+\(block.entries.count - 40) more") }
+                        }
                     }
                     if !block.apps.isEmpty {
                         Divider()
-                        Text("Blocked apps").font(.headline)
-                        Text(block.apps.map(\.name).joined(separator: "  ·  "))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+                        Heading("Blocked apps")
+                        FlowLayout(spacing: 6) {
+                            ForEach(block.apps, id: \.id) { Tag(text: $0.name) }
+                        }
                     }
                 }
             }
@@ -333,8 +360,8 @@ struct ActiveBlockCard: View {
 
     private var startedText: String {
         switch block.source {
-        case .manual: return "started manually"
-        case .schedule(_, let name): return "started by schedule “\(name)”"
+        case .manual: return "Manual block"
+        case .schedule(_, let name): return "Schedule: \(name)"
         }
     }
 
@@ -342,9 +369,9 @@ struct ActiveBlockCard: View {
         let cal = Calendar.current
         let end = block.displayEnd
         let time = end.formatted(date: .omitted, time: .shortened)
-        if cal.isDateInToday(end) { return "today at \(time)" }
-        if cal.isDateInTomorrow(end) { return "tomorrow at \(time)" }
-        return end.formatted(.dateTime.weekday(.abbreviated).month().day()) + " at " + time
+        if cal.isDateInToday(end) { return time }
+        if cal.isDateInTomorrow(end) { return "tomorrow \(time)" }
+        return end.formatted(.dateTime.weekday(.abbreviated).month().day()) + " " + time
     }
 }
 

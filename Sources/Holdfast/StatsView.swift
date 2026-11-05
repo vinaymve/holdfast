@@ -12,24 +12,23 @@ struct StatsView: View {
         ScrollView {
             VStack(spacing: 18) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 12)], spacing: 12) {
-                    StatTile(title: "Time blocked", value: hoursText(stats.totalSeconds), symbol: "hourglass")
-                    StatTile(title: "Blocks", value: "\(stats.blockCount)", symbol: "shield.checkered")
-                    StatTile(title: "Current streak", value: "\(stats.currentStreakDays) day\(stats.currentStreakDays == 1 ? "" : "s")", symbol: "flame.fill")
-                    StatTile(title: "Longest block", value: Format.duration(stats.longestSeconds), symbol: "trophy.fill")
+                    StatTile(title: "Time blocked", value: hoursText(stats.totalSeconds))
+                    StatTile(title: "Blocks", value: "\(stats.blockCount)")
+                    StatTile(title: "Current streak", value: "\(stats.currentStreakDays) day\(stats.currentStreakDays == 1 ? "" : "s")")
+                    StatTile(title: "Longest block", value: Format.duration(stats.longestSeconds))
                 }
 
                 Card {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Last 14 days").font(.headline)
+                        Heading("Last 14 days")
                         Chart(stats.daily, id: \.day) { item in
                             BarMark(x: .value("Day", item.day, unit: .day), y: .value("Hours", item.seconds / 3600))
-                                .foregroundStyle(Color.accentColor.gradient)
-                                .cornerRadius(4)
+                                .foregroundStyle(Calendar.current.isDateInToday(item.day) ? Theme.accent : Theme.ink.opacity(0.78))
+                                .cornerRadius(2)
                         }
                         .chartYAxisLabel("hours")
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .day, count: 2)) { _ in
-                                AxisGridLine()
                                 AxisValueLabel(format: .dateTime.day())
                             }
                         }
@@ -42,7 +41,7 @@ struct StatsView: View {
 
                 Card {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Recent blocks").font(.headline)
+                        Heading("Recent blocks")
                         if model.state.history.isEmpty {
                             Text("Finished blocks will show up here.").foregroundStyle(.secondary)
                         }
@@ -77,14 +76,18 @@ struct StatsView: View {
 private struct StatTile: View {
     let title: String
     let value: String
-    let symbol: String
 
     var body: some View {
-        Card(padding: 14) {
+        Card(padding: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: symbol).foregroundStyle(Color.accentColor)
-                Text(value).font(.title2.bold().monospacedDigit()).minimumScaleFactor(0.7).lineLimit(1)
-                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(title)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSecondary)
+                Text(value)
+                    .font(Theme.display(28, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
             }
         }
     }

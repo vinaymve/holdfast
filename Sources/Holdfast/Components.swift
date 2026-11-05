@@ -5,37 +5,92 @@ import HoldfastCore
 
 struct Card<Content: View>: View {
     var padding: CGFloat = 20
+    var radius: CGFloat = Theme.cardRadius
     @ViewBuilder var content: Content
 
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.separator.opacity(0.6)))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .hairline(radius: radius)
     }
 }
 
+/// Selectable preset. The selected chip is inverted ink, so accent colour stays reserved for the primary action.
 struct Chip: View {
     let title: String
     var symbol: String?
     var isSelected = false
     let action: () -> Void
+    @State private var hovering = false
+    @FocusState private var focused: Bool
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                if let symbol { Image(systemName: symbol) }
+                if let symbol { Image(systemName: symbol).imageScale(.small) }
                 Text(title).lineLimit(1)
             }
-            .font(.callout.weight(.medium))
+            .font(.system(size: 13, weight: .medium))
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(isSelected ? Color.accentColor : Color.primary.opacity(0.07), in: Capsule())
-            .foregroundStyle(isSelected ? Color.white : Color.primary)
-            .contentShape(Capsule())
+            .frame(height: 30)
+            .foregroundStyle(isSelected ? Theme.paper : Theme.ink)
+            .background(isSelected ? Theme.ink : hovering ? Theme.raised : Theme.paper,
+                        in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+            .hairline(radius: Theme.controlRadius, color: isSelected ? Theme.ink : Theme.hairline)
+            .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.15), value: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
+        .focusEffectDisabled()
+        .focused($focused)
+        .overlay {
+            // Keyboard focus ring in the app's ink colour, offset so it shows on an inverted (selected) chip too.
+            if focused {
+                RoundedRectangle(cornerRadius: Theme.controlRadius + 3, style: .continuous)
+                    .strokeBorder(Theme.ink, lineWidth: 2)
+                    .padding(-4)
+            }
+        }
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Segmented control: raised thumb on a recessed track.
+struct SegmentedControl<Value: Hashable>: View {
+    let options: [(Value, String)]
+    @Binding var selection: Value
+    @Namespace private var thumb
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.0) { value, title in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { selection = value }
+                } label: {
+                    Text(title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(selection == value ? Theme.ink : Theme.inkSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
+                        .background {
+                            if selection == value {
+                                RoundedRectangle(cornerRadius: Theme.controlRadius - 2, style: .continuous)
+                                    .fill(Theme.raised)
+                                    .hairline(radius: Theme.controlRadius - 2)
+                                    .matchedGeometryEffect(id: "thumb", in: thumb)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == value ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Theme.track, in: RoundedRectangle(cornerRadius: Theme.controlRadius + 1, style: .continuous))
     }
 }
 
@@ -47,29 +102,35 @@ struct NumberField: View {
     /// Show at least two digits ("05"), for minutes in a clock time.
     var zeroPadded = false
     var onChange: () -> Void = {}
+    @FocusState private var focused: Bool
 
     private var format: IntegerFormatStyle<Int> {
         zeroPadded ? IntegerFormatStyle<Int>().precision(.integerLength(2)) : IntegerFormatStyle<Int>()
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             TextField("0", value: $value, format: format)
                 .textFieldStyle(.plain)
-                .font(.system(size: 36, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(Theme.display(34, weight: .medium))
                 .multilineTextAlignment(.trailing)
-                .frame(width: 84)
+                .focused($focused)
+                .frame(width: 78)
                 .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, 10)
+                .background(Theme.paper, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                    .strokeBorder(focused ? Theme.accent : Theme.hairline, lineWidth: focused ? 2 : 1))
                 .onChange(of: value) { _, new in
                     let clamped = min(max(new, range.lowerBound), range.upperBound)
                     if clamped != new { value = clamped }
                     onChange()
                 }
-            Text(unit)
-                .font(.title3)
-                .foregroundStyle(.secondary)
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.inkSecondary)
+            }
             Stepper("", value: $value, in: range)
                 .labelsHidden()
         }

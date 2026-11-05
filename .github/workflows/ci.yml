@@ -19,7 +19,7 @@ jobs:
         run: |
           swift build -c release
           for b in Holdfast holdfastd holdfast-cli; do
-            if strings ".build/release/$b" | grep -qE 'dev-root|dev-service|dev-state'; then
+            if strings ".build/release/$b" | grep -qE 'dev-root|dev-service|dev-state|forceDark'; then
               echo "dev flag found in release binary $b"; exit 1
             fi
           done

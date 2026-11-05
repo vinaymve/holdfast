@@ -41,39 +41,48 @@ struct MenuBarContent: View {
             .buttonStyle(.link)
         }
         .padding(16)
-        .frame(width: 290)
+        .frame(width: 320)
+        .background(Theme.paper)
+        .tint(Theme.accent)
     }
 
     private func running(_ block: ActiveBlock) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Block running", systemImage: "lock.shield.fill").font(.headline).foregroundStyle(Color.accentColor)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                StatusDot()
+                Text("Blocking" + (block.profileName.map { " · \($0)" } ?? ""))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+            }
             Text(Format.clock(block.remaining(at: model.now)))
-                .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
-            ProgressView(value: block.progress(at: model.now))
-            Text("Ends at \(block.displayEnd.formatted(date: .omitted, time: .shortened)) · \(block.profileName ?? "custom block")")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Theme.display(40, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .contentTransition(.numericText(countsDown: true))
+            TimeBar(progress: block.progress(at: model.now))
+            Text("Ends at \(block.displayEnd.formatted(date: .omitted, time: .shortened))")
+                .font(.system(size: 12).monospacedDigit())
+                .foregroundStyle(Theme.inkSecondary)
         }
     }
 
     private var idle: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Quick start").font(.headline)
+        VStack(alignment: .leading, spacing: 12) {
+            Heading("Quick start")
             Picker("Profile", selection: Binding(get: { model.selectedProfile?.id ?? UUID() }, set: { model.selectProfile($0) })) {
                 ForEach(model.profiles) { Text($0.name).tag($0.id) }
             }
             .labelsHidden()
             HStack(spacing: 6) {
-                ForEach([(30, "30m"), (60, "1h"), (120, "2h"), (240, "4h")], id: \.0) { minutes, title in
+                ForEach([(30, "30 min"), (60, "1 hour"), (120, "2 hours"), (240, "4 hours")], id: \.0) { minutes, title in
                     Button(title) { Task { await model.startBlock(minutes: minutes) } }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(SecondaryButtonStyle())
                         .disabled(model.isBusy || (model.selectedProfile?.isEmpty ?? true))
                 }
             }
             if let schedule = nextSchedule {
-                Text("Next: \(schedule.name) · \(schedule.start.formatted(.relative(presentation: .named)))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Next: \(schedule.name), \(schedule.start.formatted(.relative(presentation: .named)))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSecondary)
             }
         }
     }

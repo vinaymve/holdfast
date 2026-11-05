@@ -11,10 +11,14 @@ struct ProfilesView: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
-                List(model.profiles, selection: $selection) { profile in
-                    Label(profile.name, systemImage: profile.symbol).tag(profile.id)
+                ScrollView {
+                    VStack(spacing: 2) {
+                        ForEach(model.profiles) { profile in
+                            ProfileRow(profile: profile, isSelected: selection == profile.id) { selection = profile.id }
+                        }
+                    }
+                    .padding(8)
                 }
-                .listStyle(.sidebar)
                 Divider()
                 HStack(spacing: 4) {
                     Button { selection = model.addProfile().id } label: { Image(systemName: "plus") }
@@ -35,6 +39,7 @@ struct ProfilesView: View {
                 .padding(8)
             }
             .frame(width: 210)
+            .background(Theme.sidebar)
 
             Divider()
 
@@ -149,6 +154,8 @@ struct ProfileEditor: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .onChange(of: profile) { _, new in model.updateProfile(new) }
     }
 
@@ -178,5 +185,40 @@ struct ProfileEditor: View {
                 profile.apps.append(app)
             }
         }
+    }
+}
+
+private struct ProfileRow: View {
+    let profile: Profile
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: profile.symbol)
+                    .frame(width: 18)
+                    .foregroundStyle(isSelected ? Theme.ink : Theme.inkSecondary)
+                Text(profile.name)
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Theme.ink : Theme.inkSecondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .background(isSelected ? Theme.raised : hovering ? Theme.raised.opacity(0.55) : .clear,
+                        in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .strokeBorder(focused ? Theme.ink : isSelected ? Theme.hairline : .clear, lineWidth: focused ? 2 : 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .focusEffectDisabled()
+        .focused($focused)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

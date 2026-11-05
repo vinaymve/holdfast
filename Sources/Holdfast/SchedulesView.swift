@@ -14,14 +14,21 @@ struct SchedulesView: View {
         ScrollView {
             VStack(spacing: 14) {
                 if schedules.isEmpty {
-                    ContentUnavailableView {
-                        Label("No schedules yet", systemImage: "calendar.badge.clock")
-                    } description: {
-                        Text("Schedules start a block automatically on the days and times you pick, for example weekdays 9 to 5. They keep running even when this app is closed.")
-                    } actions: {
-                        Button("New Schedule") { beginNew() }.buttonStyle(.borderedProminent)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("No schedules yet")
+                            .font(Theme.display(28))
+                            .foregroundStyle(Theme.ink)
+                        Text("A schedule starts a block on the days and times you pick, for example weekdays 9 to 5. Schedules keep running when this app is closed.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.inkSecondary)
+                            .frame(maxWidth: 420, alignment: .leading)
+                        Button { beginNew() } label: { Text("New schedule") }
+                            .buttonStyle(PrimaryButtonStyle(compact: true))
+                            .frame(width: 160)
+                            .padding(.top, 4)
                     }
-                    .padding(.top, 40)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
                 } else {
                     ForEach(schedules) { schedule in
                         ScheduleRow(schedule: schedule,
@@ -88,20 +95,26 @@ private struct ScheduleRow: View {
                     .labelsHidden()
                     .disabled(model.isBusy)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(schedule.name).font(.headline)
-                    Text("\(daysText) · \(timeText)").font(.callout).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text(schedule.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink)
+                        if schedule.enabled, schedule.window(containing: model.now) != nil {
+                            HStack(spacing: 5) { StatusDot(); Text("Active now").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.ink) }
+                        }
+                    }
+                    Text("\(daysText) · \(timeText)").font(.system(size: 13)).foregroundStyle(Theme.inkSecondary)
                     HStack(spacing: 6) {
                         Image(systemName: schedule.profile.symbol)
                         Text(schedule.profile.name)
                         if let next = nextText { Text("· \(next)") }
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSecondary)
                 }
-                .opacity(schedule.enabled ? 1 : 0.5)
+                .opacity(schedule.enabled ? 1 : 0.6)
                 Spacer()
-                Button("Edit", action: onEdit).disabled(model.isBusy)
+                Button("Edit", action: onEdit).buttonStyle(SecondaryButtonStyle()).disabled(model.isBusy)
                 Button(role: .destructive, action: onDelete) { Image(systemName: "trash") }
+                    .buttonStyle(SecondaryButtonStyle())
                     .disabled(model.isBusy)
                     .help("Delete schedule")
             }

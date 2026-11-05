@@ -3,7 +3,7 @@
 import Foundation
 
 public enum SC {
-    public static let version = "1.0.0"
+    public static let version = "1.0.1"
     public static let serviceName = "dev.holdfast.daemon"
     public static let helperPath = "/Library/PrivilegedHelperTools/dev.holdfast.daemon"
     public static let launchDaemonPlistPath = "/Library/LaunchDaemons/dev.holdfast.daemon.plist"

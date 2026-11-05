@@ -27,6 +27,10 @@ enum Theme {
     static let accentPressed = dynamic(0x9E3315, 0xD95A33)
     static let onAccent = dynamic(0xFFFFFF, 0x1B1A18)
 
+    // Quiet secondary tones for actions on a live block. Muted and earthy, used only as outline, tint and label.
+    static let moss = dynamic(0x2F6B4F, 0x7FBF9B)         // add: 5.9:1 on surface (dark 6.8:1)
+    static let slate = dynamic(0x3D5F80, 0x8DB3D6)        // extend: 6.1:1 on surface (dark 7.1:1)
+
     // Semantic
     static let warning = dynamic(0x9A5B00, 0xE5A445)
 
@@ -114,6 +118,37 @@ struct SecondaryButtonStyle: ButtonStyle {
                 .background(configuration.isPressed ? Theme.track : hovering ? Theme.raised : Theme.surface,
                             in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
                 .hairline(radius: Theme.controlRadius)
+                .opacity(isEnabled ? 1 : 0.4)
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+                .onHover { hovering = $0 }
+        }
+    }
+}
+
+/// A secondary button carrying one muted tone: tinted fill, tone outline, tone label. Hover and press deepen the tint.
+struct ToneButtonStyle: ButtonStyle {
+    let tone: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        StyledLabel(configuration: configuration, tone: tone)
+    }
+
+    private struct StyledLabel: View {
+        let configuration: Configuration
+        let tone: Color
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovering = false
+
+        var body: some View {
+            let tint = configuration.isPressed ? 0.20 : hovering ? 0.14 : 0.08
+            configuration.label
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(tone)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(tone.opacity(tint), in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+                .hairline(radius: Theme.controlRadius, color: tone.opacity(0.4))
                 .opacity(isEnabled ? 1 : 0.4)
                 .scaleEffect(configuration.isPressed ? 0.97 : 1)
                 .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

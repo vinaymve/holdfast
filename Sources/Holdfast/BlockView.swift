@@ -298,11 +298,11 @@ struct ActiveBlockCard: View {
 
                     HStack(spacing: 10) {
                         Button { showAddSites = true } label: { HStack(spacing: 6) { Image(systemName: "plus"); Text("Add sites") } }
-                            .buttonStyle(SecondaryButtonStyle())
+                            .buttonStyle(ToneButtonStyle(tone: Theme.moss))
                             .disabled(block.isAllowlist || model.isBusy)
                             .help(block.isAllowlist ? "Sites can't be added to an allowlist block." : "Add more sites to this block")
                         Button { showExtend = true } label: { HStack(spacing: 6) { Image(systemName: "clock"); Text("Extend") } }
-                            .buttonStyle(SecondaryButtonStyle())
+                            .buttonStyle(ToneButtonStyle(tone: Theme.slate))
                             .disabled(model.isBusy)
                             .popover(isPresented: $showExtend, arrowEdge: .bottom) {
                                 VStack(alignment: .leading, spacing: 2) {

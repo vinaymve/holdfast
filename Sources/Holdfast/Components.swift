@@ -18,6 +18,21 @@ struct Card<Content: View>: View {
 }
 
 /// Selectable preset. The selected chip is inverted ink, so accent colour stays reserved for the primary action.
+/// Tracks whether the last input was the keyboard, so focus rings show for Tab navigation but not when the window
+/// simply hands initial focus to the first control.
+enum KeyboardNav {
+    static var lastInputWasKey = false
+    private static var monitor: Any?
+
+    static func start() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown]) { event in
+            lastInputWasKey = event.type == .keyDown
+            return event
+        }
+    }
+}
+
 struct Chip: View {
     let title: String
     var symbol: String?
@@ -46,14 +61,20 @@ struct Chip: View {
         .focusEffectDisabled()
         .focused($focused)
         .overlay {
-            // Keyboard focus ring in the app's ink colour, offset so it shows on an inverted (selected) chip too.
-            if focused {
-                RoundedRectangle(cornerRadius: Theme.controlRadius + 3, style: .continuous)
+            // Keyboard focus ring in the app's ink colour, drawn inside the chip so no parent can clip it. On a selected
+            // (ink) chip the ring would vanish, so it gets a paper line just inside it.
+            if focused && KeyboardNav.lastInputWasKey {
+                RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
                     .strokeBorder(Theme.ink, lineWidth: 2)
-                    .padding(-4)
+                if isSelected {
+                    RoundedRectangle(cornerRadius: Theme.controlRadius - 2, style: .continuous)
+                        .strokeBorder(Theme.paper, lineWidth: 1.5)
+                        .padding(2)
+                }
             }
         }
         .onHover { hovering = $0 }
+        .onAppear { KeyboardNav.start() }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

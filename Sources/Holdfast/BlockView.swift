@@ -65,7 +65,7 @@ struct NewBlockCard: View {
                     Task { await model.startBlock() }
                 } label: {
                     HStack(spacing: 8) {
-                        if model.isBusy { ProgressView().controlSize(.small) }
+                        if model.isBusy { Spinner() }
                         Text("Start block")
                     }
                 }
@@ -405,5 +405,23 @@ struct AddSitesSheet: View {
         }
         .padding(20)
         .frame(width: 420)
+    }
+}
+
+
+/// Small indeterminate spinner drawn in SwiftUI. The AppKit-backed `ProgressView` logs "Invalid Configuration" faults
+/// when it sits inside a button that is scaling or resizing, which happens while the helper installs.
+struct Spinner: View {
+    @State private var spinning = false
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.1, to: 0.8)
+            .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            .frame(width: 14, height: 14)
+            .rotationEffect(.degrees(spinning ? 360 : 0))
+            .animation(.linear(duration: 0.9).repeatForever(autoreverses: false), value: spinning)
+            .onAppear { spinning = true }
+            .accessibilityLabel("Working")
     }
 }

@@ -108,29 +108,71 @@ public enum HelperInstaller {
         ].joined(separator: "\n")
     }
 
-    /// Runs a shell script as root via the standard macOS admin prompt.
-    static func runAsAdmin(_ script: String) throws {
-        let escaped = script
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", "do shell script \"\(escaped)\" with administrator privileges"]
-        let pipe = Pipe()
-        process.standardError = pipe
-        process.standardOutput = pipe
-        try process.run()
-        let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            if output.contains("-128") { throw SCError(.notAuthorized, "The install was cancelled.") }
-            throw SCError(.installFailed, output.trimmingCharacters(in: .whitespacesAndNewlines))
+    private static let exitMarker = "__HOLDFAST_EXIT:"
+
+    /// Splits the output of a wrapped admin script into the script's own output and its exit status.
+    static func parseAdminOutput(_ raw: String) -> (status: Int, output: String) {
+        var lines = raw.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        while let last = lines.last, last.isEmpty { lines.removeLast() }
+        guard let last = lines.last, last.hasPrefix(exitMarker), let status = Int(last.dropFirst(exitMarker.count)) else {
+            return (-1, raw.trimmingCharacters(in: .whitespacesAndNewlines))
         }
+        lines.removeLast()
+        return (status, lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    public static func install(bundledHelper: URL) async throws {
+    private typealias ExecuteWithPrivileges = @convention(c) (
+        AuthorizationRef, UnsafePointer<CChar>, AuthorizationFlags,
+        UnsafePointer<UnsafeMutablePointer<CChar>?>?, UnsafeMutablePointer<UnsafeMutablePointer<FILE>?>?
+    ) -> OSStatus
+
+    /// Runs a shell script as root through Authorization Services, the same system prompt (password or Touch ID) as
+    /// the block's own authorization, instead of a separate AppleScript dialog. `authorization` lets the caller reuse
+    /// a session it already authenticated, so the user isn't asked twice.
+    ///
+    /// AuthorizationExecuteWithPrivileges is deprecated and hidden from Swift, so it's looked up at runtime. It is
+    /// the only Authorization Services call that runs a tool as root without a signed, bundled helper.
+    static func runAsAdmin(_ script: String, authorization: SCAuthorization.Ticket? = nil) throws {
+        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "AuthorizationExecuteWithPrivileges") else {
+            throw SCError(.installFailed, "This version of macOS no longer supports installing the helper this way.")
+        }
+        let execute = unsafeBitCast(symbol, to: ExecuteWithPrivileges.self)
+        let session = try authorization ?? SCAuthorization.makeSession()
+        guard let ref = session.authRef else { throw SCError(.notAuthorized, "(couldn't create an authorization session)") }
+
+        let wrapped = "exec 2>&1\n( \(script)\n)\necho \"\(exitMarker)$?\""
+        let argStrings: [String] = ["-c", wrapped]
+        var args: [UnsafeMutablePointer<CChar>?] = argStrings.map { strdup($0) }
+        args.append(nil)
+        defer { args.forEach { free($0) } }
+
+        var pipe: UnsafeMutablePointer<FILE>?
+        let status = args.withUnsafeBufferPointer { execute(ref, "/bin/sh", [], $0.baseAddress, &pipe) }
+        guard status == errAuthorizationSuccess, let pipe else {
+            switch status {
+            case errAuthorizationCanceled: throw SCError(.notAuthorized, "The install was cancelled.")
+            case errAuthorizationDenied: throw SCError(.notAuthorized, "The password wasn't accepted, or this account isn't an administrator.")
+            default: throw SCError(.installFailed, "(authorization error \(status))")
+            }
+        }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let n = fread(&buffer, 1, buffer.count, pipe)
+            if n <= 0 { break }
+            data.append(contentsOf: buffer[0..<n])
+        }
+        fclose(pipe)
+
+        let result = parseAdminOutput(String(decoding: data, as: UTF8.self))
+        guard result.status == 0 else { throw SCError(.installFailed, result.output) }
+    }
+
+    public static func install(bundledHelper: URL, authorization: SCAuthorization.Ticket? = nil) async throws {
         let team = currentTeamID()
-        try await Task.detached { try runAsAdmin(installScript(sourceBinary: bundledHelper.path, expectedTeamID: team)) }.value
+        let script = installScript(sourceBinary: bundledHelper.path, expectedTeamID: team)
+        try await Task.detached { try runAsAdmin(script, authorization: authorization) }.value
     }
 
     public static func uninstall() async throws {

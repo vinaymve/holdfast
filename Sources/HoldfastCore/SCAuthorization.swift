@@ -48,7 +48,8 @@ public enum SCAuthorization {
     /// "not authorized" even though the user entered the right password.)
     public final class Ticket {
         private var ref: AuthorizationRef?
-        public let externalForm: Data
+        public internal(set) var externalForm: Data
+        var authRef: AuthorizationRef? { ref }
 
         init(ref: AuthorizationRef, externalForm: Data) {
             self.ref = ref
@@ -58,15 +59,28 @@ public enum SCAuthorization {
         deinit { if let ref { AuthorizationFree(ref, []) } }
     }
 
+    /// True if the right is already in the system policy database (the daemon registers it on first launch).
+    public static func isRegistered(_ right: String) -> Bool {
+        AuthorizationRightGet(right, nil) == errAuthorizationSuccess
+    }
+
     /// Client side: prompts the user and returns a ticket whose `externalForm` is sent to the daemon.
-    public static func obtain(right: String) throws -> Ticket {
-        var authRef: AuthorizationRef?
-        guard AuthorizationCreate(nil, nil, [], &authRef) == errAuthorizationSuccess, let authRef else {
+    /// Pass `reusing` to add the right to an existing session: if that session already authenticated the same
+    /// admin within the right's timeout, no second prompt appears.
+    public static func obtain(right: String, reusing existing: Ticket? = nil) throws -> Ticket {
+        var created: AuthorizationRef?
+        if existing?.authRef == nil {
+            guard AuthorizationCreate(nil, nil, [], &created) == errAuthorizationSuccess, created != nil else {
+                throw SCError(.notAuthorized, "(couldn't create an authorization session)")
+            }
+        }
+        guard let authRef = existing?.authRef ?? created else {
             throw SCError(.notAuthorized, "(couldn't create an authorization session)")
         }
+        let ownsRef = existing == nil
 
         func fail(_ error: SCError) -> SCError {
-            AuthorizationFree(authRef, [])
+            if ownsRef { AuthorizationFree(authRef, []) }
             return error
         }
 
@@ -90,6 +104,25 @@ public enum SCAuthorization {
         let externalStatus = AuthorizationMakeExternalForm(authRef, &external)
         guard externalStatus == errAuthorizationSuccess else {
             throw fail(SCError(.notAuthorized, "(couldn't export the authorization, error \(externalStatus))"))
+        }
+        let form = withUnsafeBytes(of: &external) { Data($0) }
+        if let existing {
+            existing.externalForm = form
+            return existing
+        }
+        return Ticket(ref: authRef, externalForm: form)
+    }
+
+    /// An empty authorization session (no rights yet), for the installer's admin prompt.
+    public static func makeSession() throws -> Ticket {
+        var authRef: AuthorizationRef?
+        guard AuthorizationCreate(nil, nil, [], &authRef) == errAuthorizationSuccess, let authRef else {
+            throw SCError(.notAuthorized, "(couldn't create an authorization session)")
+        }
+        var external = AuthorizationExternalForm()
+        guard AuthorizationMakeExternalForm(authRef, &external) == errAuthorizationSuccess else {
+            AuthorizationFree(authRef, [])
+            throw SCError(.notAuthorized, "(couldn't export the authorization session)")
         }
         return Ticket(ref: authRef, externalForm: withUnsafeBytes(of: &external) { Data($0) })
     }

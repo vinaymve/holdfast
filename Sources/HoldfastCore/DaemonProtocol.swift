@@ -42,8 +42,25 @@ public final class DaemonClient {
         return connection
     }
 
+    private let preauthLock = NSLock()
+    private var preauthorized: SCAuthorization.Ticket?
+
+    /// Hands the client an authorization session the user already authenticated (for example while installing the
+    /// helper), to use for the next privileged call instead of prompting again. Used once.
+    public func preauthorize(_ ticket: SCAuthorization.Ticket?) {
+        preauthLock.lock(); defer { preauthLock.unlock() }
+        preauthorized = ticket
+    }
+
     private func authorization(for right: String) throws -> SCAuthorization.Ticket? {
-        requireAuthorization ? try SCAuthorization.obtain(right: right) : nil
+        guard requireAuthorization else { return nil }
+        preauthLock.lock()
+        let existing = preauthorized
+        preauthorized = nil
+        preauthLock.unlock()
+        // Reusing the session keeps any credentials it already holds; the right is added to it (no new prompt if the
+        // session's admin authentication is still fresh and shareable).
+        return try SCAuthorization.obtain(right: right, reusing: existing)
     }
 
     private func perform(right: String, _ invoke: @escaping (SCDaemonProtocol, Data, @escaping (NSError?) -> Void) -> Void) async throws {

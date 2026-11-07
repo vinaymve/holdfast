@@ -223,14 +223,14 @@ final class AppModel {
     func installHelper() async {
         isBusy = true
         defer { isBusy = false }
-        _ = await ensureHelper(force: true)
+        _ = await ensureHelper(force: true, right: nil)
     }
 
     /// Makes sure the privileged helper is installed, current and answering, installing or updating it
     /// (one admin prompt) if not. Starting a block, saving a schedule, etc. call this first, so there is no
     /// separate "set up" step. Returns false if it couldn't be made ready (the user is told why, unless they
     /// simply cancelled the prompt).
-    private func ensureHelper(force: Bool = false) async -> Bool {
+    private func ensureHelper(force: Bool = false, right: String? = SC.modifyRight) async -> Bool {
         if !force {
             await refreshHelperStatus()
             if helper == .ready { return true }
@@ -239,12 +239,20 @@ final class AppModel {
             errorMessage = "The helper isn't bundled with this build. Use Scripts/build-app.sh to build Holdfast.app."
             return false
         }
+        // Authenticate once, up front, for the right the caller is about to need, then install with that same
+        // authorization session and hand it on to the privileged call. Skipped if the right isn't registered yet
+        // (first-ever install): the daemon creates it on first launch.
+        var session: SCAuthorization.Ticket?
+        if let right, SCAuthorization.isRegistered(right) {
+            do { session = try SCAuthorization.obtain(right: right) } catch { report(error); return false }
+        }
         do {
-            try await HelperInstaller.install(bundledHelper: bundled)
+            try await HelperInstaller.install(bundledHelper: bundled, authorization: session)
         } catch {
             report(error)
             return false
         }
+        client.preauthorize(session)
         // The new daemon needs a moment to register with launchd and set up its authorization rights.
         for _ in 0..<12 {
             await refreshHelperStatus()
@@ -358,7 +366,7 @@ final class AppModel {
 
         isBusy = true
         defer { isBusy = false }
-        guard await ensureHelper() else { return }
+        guard await ensureHelper(right: SC.startRight) else { return }
         let end = quickMinutes.map { Date().addingTimeInterval(TimeInterval($0) * 60) } ?? plannedLength.endDate(from: Date())
         do {
             let request = BlockRequest(entries: profile.entries, isAllowlist: profile.isAllowlist, endDate: end,

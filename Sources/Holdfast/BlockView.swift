@@ -90,7 +90,7 @@ extension NewBlockCard {
         case .notInstalled:
             return "First time: you'll be asked for your admin password twice, once to set up the helper and once to start. You won't be able to turn the block off until the timer runs out."
         case .outdated:
-            return "The helper will be updated first, so expect an extra admin prompt. You won't be able to turn the block off until the timer runs out."
+            return "The helper will be updated first, using the same password or Touch ID prompt. You won't be able to turn the block off until the timer runs out."
         case .notRunning:
             return "The helper will be restarted first. You won't be able to turn the block off until the timer runs out."
         case .ready, .checking:

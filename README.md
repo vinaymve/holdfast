@@ -59,7 +59,7 @@ cycle against a scratch directory. The dev daemon (`holdfastd --dev-root DIR`) r
 ## Differences from the original (and why)
 
 - **No SMJobBless.** It needs a Developer ID signature that matches the helper's embedded requirement. The helper is
-  installed with one admin prompt (`osascript` + `launchctl`) instead. Trade-off: trust in the helper binary rests on
+  installed through Authorization Services (the system password / Touch ID prompt, then `launchctl`) instead. Trade-off: trust in the helper binary rests on
   the app bundle's integrity at install time. For distribution, sign + notarize and move to `SMAppService`; the daemon
   honors an optional `SC_CLIENT_REQUIREMENT` environment variable to restrict XPC clients by code signature.
 - **Own identity.** The hosts section is `# BEGIN HOLDFAST BLOCK`, the pf anchor is `dev.holdfast`, the pf token file
